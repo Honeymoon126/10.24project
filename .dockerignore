@@ -1,0 +1,80 @@
+# ============================================================================
+# 构建上下文白/黑名单。
+#
+# Dockerfile 的最后一步是 `COPY . .`。**这里漏掉什么，什么就进镜像层**——
+# 而镜像层只增不减，事后换成 `.dockerignore` 也抹不掉已经推出去的层。
+#
+# 本仓库的 `.env` 指向**生产 RDS**（见 tests_safe/README.md 那条导入链），
+# 所以下面第一段不是洁癖，是防止把生产口令烙进镜像。
+#
+# 由 tests_safe/test_docker_assets.py::TestDockerignore 逐条断言。
+# ============================================================================
+
+# ===== 凭据与本地配置（最要紧的一段）=====
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# ===== 真实用户数据 =====
+voiceprints.json
+storage/
+uploads/
+*.log
+*.db
+*.sqlite
+*.sqlite3
+*.pdf
+
+# ===== Python 运行残留 =====
+venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# ===== 版本控制与工具链缓存 =====
+.git/
+.gitignore
+.claude/
+.codegraph/
+.qoder/
+
+# ===== 容器化自身的产物（不进上下文，免得改一行 Dockerfile 就失效缓存）=====
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# ===== 本地一次性脚手架（.gitignore 里那几条的同款理由）=====
+_msg.txt
+_msg*.txt
+_header*.py
+_before_*.py
+tmp/
+_tmp_agora_token_builder/
+
+# ===== 桌面端脚本：只在开发和部署机上跑，容器里没用 =====
+*.ps1
+# 2026-10-01 的根目录整理把它移到了 archive/dev-docs/。
+# 必须加 `**/` 前缀：Docker 的匹配是拿「相对上下文根的整条路径」去比模式，
+# 裸文件名只匹配根目录下的同名文件——文件一搬，这条规则就**悄悄失效**，
+# 而它是"该排除"清单里唯一一条没有任何断言盯着的（见 test_docker_assets.py
+# 的 _FORBIDDEN_IN_CONTEXT，里面没有它）。所以这里宁可写宽一点。
+**/CDN本地化命令.txt
+
+# ===== 归档区：死代码与旧运维脚本，不烘进镜像层 =====
+# Dockerfile 末行 `COPY . .` 会把整棵 archive/ 打进镜像。它没有任何被 import
+# 的模块，也不会被线上拉起；烘进去只是让可推送的那一层多背 1.1 MB 死代码
+# （含 archive/ops-scripts/ 那批碰生产库的旧脚本）。
+# 运行时不缺它：开发容器把仓库 bind-mount 到 /app（docker-compose.yml），
+# 读写的是宿主那份——这也是容器内 `test_legacy_isolation.py` 仍然看得到
+# archive/legacy-tests/ 的原因。
+# 由 tests_safe/test_docker_assets.py 的 _FORBIDDEN_IN_CONTEXT 断言。
+# （上面那条 `**/CDN本地化命令.txt` 已被本规则覆盖，但**保留不删**：
+#  钉它的那条断言问的是"名字还在清单里"，删掉它等于往回走。）
+archive/
+
+# 注意：index.html、pcm-processor.js、app/、tests_safe/、tools/、deploy/
+# 都**要**保留——前者是运行时真的会读的文件（app/routers/pages.py 的 `GET /`），
+# 后几个是容器里要跑测试和运维脚本用的。

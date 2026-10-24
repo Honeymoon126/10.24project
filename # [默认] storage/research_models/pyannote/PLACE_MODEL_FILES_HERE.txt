@@ -1,0 +1,1 @@
+Put the local files for pyannote in this directory.

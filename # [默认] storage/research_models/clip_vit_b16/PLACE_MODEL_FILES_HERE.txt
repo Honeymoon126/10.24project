@@ -1,0 +1,1 @@
+Put the local files for clip_vit_b16 in this directory.
